@@ -7,7 +7,7 @@
   <meta name="description" content="多点旅游路线规划工具：使用高德地图和实时路况，自动安排更省时的游览顺序。">
   <title>途记 · 多点旅游路线规划</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2312211c'/%3E%3Cpath d='M17 42c8-20 17-20 30 0' fill='none' stroke='%23ff7657' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='17' cy='42' r='5' fill='%23f5d78e'/%3E%3Ccircle cx='47' cy='42' r='5' fill='%23f5d78e'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./styles.css?v=2">
+  <link rel="stylesheet" href="./styles.css?v=3">
 </head>
 <body>
   <main class="app-shell">
@@ -48,7 +48,8 @@
         <div id="searchResults" class="search-results" hidden aria-label="地点搜索结果"></div>
         <div class="via-heading"><span>途经点</span><span id="pointCount"></span></div>
         <ol class="stop-list" id="stopList" aria-label="途经点列表"></ol>
-        <form class="add-place" id="addPlaceForm"><label class="sr-only" for="placeInput">添加途经点</label><span aria-hidden="true">＋</span><input id="placeInput" autocomplete="off" placeholder="添加景点或地址"><button type="submit">搜索</button></form>
+        <form class="add-place" id="addPlaceForm"><label class="sr-only" for="placeInput">添加途经点</label><span aria-hidden="true">＋</span><input id="placeInput" autocomplete="off" placeholder="搜索地点或粘贴 Apple 地图链接"><button type="submit">搜索</button></form>
+        <p class="search-help">搜索会综合全国、城市、当前地图附近和输入联想结果。高德未收录时，可从 Apple 地图“共享 → 拷贝”后粘贴链接。</p>
         <button id="pickVia" class="text-button">⌖ 在地图上添加途经点</button>
         <label class="return-toggle"><span><strong>智能排列途经点</strong><small>保持起点和终点不变</small></span><input type="checkbox" id="sortStops" checked><span class="switch" aria-hidden="true"></span></label>
         <label class="return-toggle"><span><strong>返回起点</strong><small>终点自动使用起点</small></span><input type="checkbox" id="roundTrip"><span class="switch" aria-hidden="true"></span></label>
@@ -118,6 +119,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="alert"></div>
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>

@@ -88,17 +88,80 @@ function editedEndpoint(role,input){
   input.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();clearTimeout(input.timer);search(role,input.value.trim(),++state.searchToken);}};
 });
 $("addPlaceForm").onsubmit=e=>{e.preventDefault();search("via",$("placeInput").value.trim(),++state.searchToken);};
-function requestSearch(keyword){
-  return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>reject(new Error("地点搜索超时，请重试")),18000);
-    new AMap.PlaceSearch({pageSize:5,extensions:"base"}).search(keyword,(s,data)=>{
-      clearTimeout(timer);const pois=data?.poiList?.pois?.filter(p=>p.location)||[];
-      s==="complete"&&pois.length ? resolve(pois) : reject(new Error("没有找到地点，请补充城市或详细地址"));
-    });
+function normalizePoi(p,source="关键词"){
+  if(!p?.location)return null;
+  return {id:p.id||p.uid||"",name:p.name||p.address||"地图地点",address:[p.cityname,p.adname,p.district,p.address].filter(Boolean).join(" "),location:p.location,source};
+}
+function mergePois(groups){
+  const seen=new Set(),result=[];
+  for(const group of groups)for(const raw of group||[]){
+    const p=normalizePoi(raw,raw.source)||raw;if(!p?.location)continue;
+    const lng=Number(p.location.lng??p.location.getLng?.()),lat=Number(p.location.lat??p.location.getLat?.());
+    const key=p.id||[p.name,lng.toFixed(5),lat.toFixed(5)].join("|");
+    if(!seen.has(key)){seen.add(key);result.push({...p,location:{lng,lat}});}
+  }
+  return result.slice(0,20);
+}
+function placeSearch(keyword,options={}){
+  return new Promise(resolve=>{
+    const service=new AMap.PlaceSearch({pageSize:20,pageIndex:1,city:options.city||"全国",citylimit:!!options.citylimit,extensions:"all",children:1});
+    const done=(s,data)=>resolve(s==="complete"?(data?.poiList?.pois||[]).filter(p=>p.location).map(p=>({...p,source:options.source||"关键词"})):[]);
+    if(options.near&&service.searchNearBy)service.searchNearBy(keyword,options.near,50000,done);else service.search(keyword,done);
   });
+}
+function inputTips(keyword){
+  return new Promise(resolve=>{
+    if(!AMap.AutoComplete)return resolve([]);
+    new AMap.AutoComplete({city:"全国",citylimit:false,datatype:"all"}).search(keyword,(s,data)=>resolve(s==="complete"?(data?.tips||[]).filter(p=>p.location).map(p=>({...p,source:"输入联想"})):[]));
+  });
+}
+function cityVariants(keyword){
+  if(!/^[\u3400-\u9fff]{4,}$/.test(keyword))return [];
+  const variants=[];
+  for(const length of [2,3,4]){
+    if(keyword.length-length<2)continue;
+    variants.push({city:keyword.slice(0,length).replace(/市$/,""),term:keyword.slice(length),source:"城市匹配"});
+  }
+  return variants;
+}
+async function requestSearch(keyword){
+  const tasks=[placeSearch(keyword),inputTips(keyword)];
+  const center=state.map?.getCenter?.();
+  if(center)tasks.push(placeSearch(keyword,{near:center,source:"地图附近"}));
+  cityVariants(keyword).forEach(v=>tasks.push(placeSearch(v.term,{city:v.city,citylimit:true,source:v.source})));
+  let timer;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("地点搜索超时，请重试")),18000);});
+  let settled;
+  try{settled=await Promise.race([Promise.allSettled(tasks),timeout]);}finally{clearTimeout(timer);}
+  const pois=mergePois(settled.filter(x=>x.status==="fulfilled").map(x=>x.value));
+  if(!pois.length)throw new Error("高德仍未找到该地点。可粘贴 Apple 地图分享链接，或在地图上手动选点");
+  return pois;
+}
+function importedLocation(value){
+  const text=value.trim();
+  const direct=text.match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,2}(?:\.\d+)?)\s*$/);
+  if(direct){
+    const lng=Number(direct[1]),lat=Number(direct[2]);
+    if(Math.abs(lng)<=180&&Math.abs(lat)<=90)return {id:crypto.randomUUID(),name:"坐标点",address:lng.toFixed(6)+", "+lat.toFixed(6),lng,lat};
+  }
+  if(!/^https?:\/\//i.test(text)||!/(?:maps\.apple\.com|maps\.apple)/i.test(text))return null;
+  try{
+    const url=new URL(text),pair=url.searchParams.get("ll")||url.searchParams.get("coordinate")||url.searchParams.get("center");
+    if(!pair)throw new Error("这个 Apple 地图链接不含坐标。请在 Apple 地图打开该地点，选择“共享 → 拷贝”后再粘贴");
+    const [lat,lng]=pair.split(",").map(Number);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng))throw new Error("Apple 地图链接中的坐标无法识别");
+    return {id:crypto.randomUUID(),name:url.searchParams.get("q")||url.searchParams.get("name")||"Apple 地图地点",address:url.searchParams.get("address")||"从 Apple 地图导入",lng,lat};
+  }catch(error){throw new Error(error.message||"无法读取 Apple 地图链接");}
 }
 async function search(role,keyword,token){
   if(!keyword)return;
+  try{
+    const imported=importedLocation(keyword);
+    if(imported){
+      assign(role,imported);if(role==="via")$("placeInput").value="";
+      $("searchResults").hidden=true;fitMap();toast("已从链接或坐标导入地点");return;
+    }
+  }catch(error){$("searchResults").hidden=false;$("searchResults").innerHTML="<p>"+esc(error.message)+"</p>";return;}
   if(!state.ready){
     const match=sample.find(p=>p.name===keyword);
     if(role==="via")assign(role,match?{...match,id:crypto.randomUUID()}:{id:crypto.randomUUID(),name:keyword,address:"待接入高德后定位"});
@@ -109,9 +172,9 @@ async function search(role,keyword,token){
   const box=$("searchResults");box.hidden=false;box.innerHTML="<p>正在搜索地点…</p>";
   try{
     const pois=await requestSearch(keyword);if(token!==state.searchToken)return;
-    box.innerHTML=pois.map((p,i)=>`<button data-poi="${i}"><strong>${esc(p.name)}</strong><small>${esc([p.cityname,p.adname,p.address].filter(Boolean).join(" "))}</small></button>`).join("");
+    box.innerHTML=pois.map((p,i)=>`<button data-poi="${i}"><strong>${esc(p.name)}</strong><small>${esc(p.address||"地址信息暂无")} · ${esc(p.source||"高德")}</small></button>`).join("");
     box.onclick=e=>{const b=e.target.closest("[data-poi]");if(!b)return;const p=pois[Number(b.dataset.poi)];
-      assign(role,{id:crypto.randomUUID(),name:p.name,address:[p.adname,p.address].filter(Boolean).join(" "),lng:p.location.lng,lat:p.location.lat});
+      assign(role,{id:crypto.randomUUID(),name:p.name,address:p.address||"高德地点",lng:p.location.lng,lat:p.location.lat});
       if(role==="via")$("placeInput").value="";box.hidden=true;state.searchToken++;fitMap();
     };
   }catch(error){if(token===state.searchToken)box.innerHTML="<p>"+esc(error.message)+"</p>";}
@@ -312,7 +375,7 @@ function loadMap(){
   const key=localStorage.getItem("amap-key"),security=localStorage.getItem("amap-security");if(!key||!security)return;
   window._AMapSecurityConfig={securityJsCode:security};
   const script=document.createElement("script");
-  script.src="https://webapi.amap.com/maps?v=2.0&key="+encodeURIComponent(key)+"&plugin=AMap.Driving,AMap.Walking,AMap.Riding,AMap.PlaceSearch";
+  script.src="https://webapi.amap.com/maps?v=2.0&key="+encodeURIComponent(key)+"&plugin=AMap.Driving,AMap.Walking,AMap.Riding,AMap.PlaceSearch,AMap.AutoComplete";
   script.onerror=()=>status("高德地图加载失败，请检查网络及地图设置");
   script.onload=()=>{
     try{
