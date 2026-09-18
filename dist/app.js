@@ -139,9 +139,10 @@ async function requestSearch(keyword){
 }
 function importedLocation(value){
   const text=value.trim();
-  const direct=text.match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,2}(?:\.\d+)?)\s*$/);
+  const direct=text.match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
   if(direct){
-    const lng=Number(direct[1]),lat=Number(direct[2]);
+    const first=Number(direct[1]),second=Number(direct[2]);
+    const [lng,lat]=Math.abs(first)<=90&&Math.abs(second)>90?[second,first]:[first,second];
     if(Math.abs(lng)<=180&&Math.abs(lat)<=90)return {id:crypto.randomUUID(),name:"坐标点",address:lng.toFixed(6)+", "+lat.toFixed(6),lng,lat};
   }
   if(!/^https?:\/\//i.test(text)||!/(?:maps\.apple\.com|maps\.apple)/i.test(text))return null;
