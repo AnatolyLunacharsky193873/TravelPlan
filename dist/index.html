@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#12211c">
+  <meta name="description" content="多点旅游路线规划工具：使用高德地图和实时路况，自动安排更省时的游览顺序。">
+  <title>途记 · 多点旅游路线规划</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2312211c'/%3E%3Cpath d='M17 42c8-20 17-20 30 0' fill='none' stroke='%23ff7657' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='17' cy='42' r='5' fill='%23f5d78e'/%3E%3Ccircle cx='47' cy='42' r='5' fill='%23f5d78e'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="planner" aria-label="路线规划面板">
+      <header class="brand-row">
+        <div class="brand-mark" aria-hidden="true">途</div>
+        <div>
+          <p class="eyebrow">TRIP ROUTER</p>
+          <h1>途记</h1>
+        </div>
+        <button class="icon-button settings-button" id="settingsButton" aria-label="地图设置" title="地图设置">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21h-4v-.08A1.7 1.7 0 0 0 8.96 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3v-4h.08A1.7 1.7 0 0 0 4.6 8.92a1.7 1.7 0 0 0-.34-1.87L4.2 6.99l2.83-2.83.06.06a1.7 1.7 0 0 0 1.87.34A1.7 1.7 0 0 0 10 3V3h4v.08a1.7 1.7 0 0 0 1.04 1.48 1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06a1.7 1.7 0 0 0-.34 1.87A1.7 1.7 0 0 0 21 9.96V10h.04v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+        </button>
+      </header>
+
+      <section class="mode-switch" aria-label="出行方式">
+        <button class="mode active" data-mode="driving" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 11 1.6-4.2A2 2 0 0 1 8.47 5.5h7.06a2 2 0 0 1 1.87 1.3L19 11M4 11h16v7H4v-7Z"/><path d="M7 15h.01M17 15h.01M6 18v2M18 18v2"/></svg>
+          驾车
+        </button>
+        <button class="mode" data-mode="walking" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4" r="2"/><path d="m10 21 1-6-2-3 2-5 4 3 3 1M8 21l-2-5 3-4M13 14l3 7"/></svg>
+          步行
+        </button>
+        <button class="mode" data-mode="riding" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="4"/><circle cx="18" cy="17" r="4"/><path d="m6 17 4-8 3 8h5l-5-8h3M9 6h3"/></svg>
+          骑行
+        </button>
+      </section>
+
+      <section class="trip-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ITINERARY</p>
+            <h2>今天去哪儿</h2>
+          </div>
+          <span class="point-count" id="pointCount">5 个地点</span>
+        </div>
+
+        <ol class="stop-list" id="stopList" aria-label="旅行地点列表"></ol>
+
+        <form class="add-place" id="addPlaceForm">
+          <label class="sr-only" for="placeInput">添加景点或地址</label>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input id="placeInput" autocomplete="off" placeholder="搜索景点或地址">
+          <button type="submit" aria-label="添加地点">添加</button>
+        </form>
+
+        <label class="return-toggle">
+          <span>
+            <strong>返回起点</strong>
+            <small>适合自驾环线</small>
+          </span>
+          <input type="checkbox" id="roundTrip">
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </section>
+
+      <button class="optimize-button" id="optimizeButton">
+        <span>
+          <strong>按实时路况智能排序</strong>
+          <small>固定第一个地点为起点</small>
+        </span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+      </button>
+      <p class="status-line" id="statusLine" role="status">当前为演示路线 · 设置高德 Key 后启用真实路况</p>
+    </section>
+
+    <section class="map-stage" aria-label="地图与路线">
+      <div id="map" class="real-map" aria-label="高德地图"></div>
+      <div class="demo-map" id="demoMap" aria-hidden="true">
+        <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice">
+          <rect width="1200" height="900" fill="#dfe8e2"/>
+          <path class="park" d="M-50 140C190 30 280 190 460 122s305-70 450 30 232 72 340-5v-210H-50Z"/>
+          <path class="water" d="M449 215c136-66 322 43 334 211 12 165-78 254-231 264-182 12-291-103-248-260 26-95 50-169 145-215Z"/>
+          <g class="roads">
+            <path d="M-20 685C180 590 341 681 520 548S834 292 1220 362"/>
+            <path d="M145-20c63 156 160 246 159 386s-95 310-13 554"/>
+            <path d="M922-30c-88 156-78 280-18 395s99 288 45 563"/>
+            <path d="M-30 350c220 59 313 9 454-52s307-20 452 41 258 83 364 59"/>
+            <path d="M31 808c193-33 375-35 553-7s376 37 644-49"/>
+          </g>
+          <g class="minor-roads">
+            <path d="M70 90 1070 840M-40 518 1120 104M442-20 415 927M700-30 752 930M42 235 1218 645"/>
+          </g>
+          <path class="demo-route" d="M314 326C373 295 414 273 465 252 535 225 612 235 643 294 676 359 626 426 543 478 470 524 443 594 492 644 549 703 650 687 715 631 770 583 831 524 888 484"/>
+          <g class="labels">
+            <text x="512" y="446">西湖</text><text x="185" y="212">西溪湿地</text><text x="850" y="205">城东</text><text x="815" y="713">滨江</text>
+          </g>
+        </svg>
+        <div class="demo-pins" id="demoPins"></div>
+      </div>
+
+      <div class="map-topbar">
+        <div class="traffic-pill"><span></span><b>路况</b><small id="trafficState">演示</small></div>
+        <button class="map-action" id="fitMapButton" aria-label="显示全部路线">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+          全览
+        </button>
+      </div>
+
+      <article class="route-summary" aria-live="polite">
+        <div class="summary-topline">
+          <span class="route-badge">推荐路线</span>
+          <span id="savedTime">预计省 28 分钟</span>
+        </div>
+        <div class="route-metrics">
+          <div><strong id="durationValue">2 小时 46 分</strong><small>预计用时</small></div>
+          <div><strong id="distanceValue">38.6 公里</strong><small>总路程</small></div>
+          <div><strong id="stopValue">5 站</strong><small>游览点</small></div>
+        </div>
+        <div class="route-order" id="routeOrder"></div>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog" class="settings-card" id="settingsForm">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">MAP SOURCE</p>
+          <h2>连接高德地图</h2>
+        </div>
+        <button value="cancel" class="icon-button" aria-label="关闭">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="dialog-copy">在高德开放平台创建“Web端（JS API）”应用，把 Key 和安全密钥填在这里。信息只保存在您的浏览器中。</p>
+      <label>Web Key<input id="amapKey" autocomplete="off" placeholder="例如：a1b2c3…"></label>
+      <label>安全密钥<input id="amapSecurity" type="password" autocomplete="off" placeholder="securityJsCode"></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-button">暂不设置</button>
+        <button value="default" class="primary-button" id="saveSettingsButton">保存并加载地图</button>
+      </div>
+      <a class="help-link" href="https://lbs.amap.com/dev/key/app" target="_blank" rel="noreferrer">如何申请高德 Key ↗</a>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="alert"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
