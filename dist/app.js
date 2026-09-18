@@ -1,6 +1,11 @@
 import { $, esc, sample, state, coord, trip, persist } from "./js/state.js";
 import { planOrder, constraints, uniqueRoutes } from "./js/route-engine.js";
-import { defaultCities, listCities, searchPlaces } from "./js/place-search.js";
+import {
+  defaultCities,
+  listCities,
+  resolveCity,
+  searchPlaces,
+} from "./js/place-search.js";
 import { query } from "./js/routing-service.js";
 import { createMapView } from "./js/map-view.js";
 
@@ -297,6 +302,16 @@ async function search(role, keyword, token) {
     $("searchResults").innerHTML = "<p>" + esc(error.message) + "</p>";
     return;
   }
+  try {
+    await commitCityInput();
+  } catch (error) {
+    if (token === state.searchToken) {
+      $("searchResults").hidden = false;
+      $("searchResults").innerHTML = "<p>" + esc(error.message) + "</p>";
+    }
+    return;
+  }
+  if (token !== state.searchToken) return;
   if (!state.ready) {
     if (state.city) {
       status("请先连接高德，以核实搜索结果所属城市；仍可手动选点。");
@@ -739,13 +754,15 @@ window.addEventListener("resize", () => {
 let cities = [...defaultCities];
 if (state.city && !cities.some((c) => c.adcode === state.city.adcode))
   cities.push(state.city);
-function renderCities() {
-  $("citySelect").innerHTML =
-    '<option value="">全国（不限制）</option>' +
-    cities
-      .map((c) => `<option value="${esc(c.adcode)}">${esc(c.name)}</option>`)
-      .join("");
-  $("citySelect").value = state.city?.adcode || "";
+let cityResolveToken = 0;
+function renderCities({ preserveInput = false } = {}) {
+  $("cityOptions").innerHTML = cities
+    .map(
+      (city) =>
+        `<option value="${esc(city.name)}" label="${esc(city.adcode)}"></option>`,
+    )
+    .join("");
+  if (!preserveInput) $("cityInput").value = state.city?.name || "";
 }
 async function refreshCities() {
   try {
@@ -753,8 +770,9 @@ async function refreshCities() {
     if (state.city && !available.some((c) => c.adcode === state.city.adcode))
       available.push(state.city);
     cities = available;
-    renderCities();
-    $("cityHelp").textContent = "仅搜索所选城市；现有地点及手动选点不受限制。";
+    renderCities({ preserveInput: document.activeElement === $("cityInput") });
+    $("cityHelp").textContent =
+      "可输入城市名；地点搜索会按行政区代码排除其他城市。";
   } catch (error) {
     $("cityHelp").textContent =
       error.message + "。当前保留常用城市，可点击重载。";
@@ -762,19 +780,66 @@ async function refreshCities() {
 }
 $("reloadCities").onclick = () =>
   state.ready ? refreshCities() : toast("请先连接高德地图");
-$("citySelect").onchange = (e) => {
-  state.city = cities.find((c) => c.adcode === e.target.value) || null;
+
+async function commitCityInput() {
+  const input = $("cityInput");
+  const value = input.value.trim();
+  if (value === (state.city?.name || "")) return state.city;
+  const token = ++cityResolveToken;
+  input.setAttribute("aria-busy", "true");
+  try {
+    const city = await resolveCity(state.ready ? AMap : null, value, cities);
+    if (token !== cityResolveToken) return null;
+    state.city = city;
+    input.value = city?.name || "";
+    input.setAttribute("aria-invalid", "false");
+    if (city && !cities.some((item) => item.adcode === city.adcode)) {
+      cities.push(city);
+      renderCities();
+    }
+    persist();
+    if (state.ready && city?.center) state.map.setCity(city.adcode);
+    status(
+      city
+        ? "仅搜索" + city.name + "；行程地点保持不变"
+        : "搜索范围已切换为全国",
+    );
+    $("cityHelp").textContent = city
+      ? "已限制为" + city.name + "，外市及归属无法确认的结果不会显示。"
+      : "可直接输入城市名，也可从候选中选择；留空表示全国。";
+    return city;
+  } catch (error) {
+    if (token === cityResolveToken) {
+      state.city = null;
+      input.setAttribute("aria-invalid", "true");
+      $("cityHelp").textContent = error.message;
+      persist();
+    }
+    throw error;
+  } finally {
+    if (token === cityResolveToken) input.setAttribute("aria-busy", "false");
+  }
+}
+
+function cityInputChanged() {
   state.searchToken++;
   clearTimeout($("startInput").timer);
   clearTimeout($("endInput").timer);
   $("searchResults").hidden = true;
-  persist();
-  if (state.ready && state.city?.center) state.map.setCity(state.city.adcode);
-  status(
-    state.city
-      ? "仅搜索" + state.city.name + "；行程地点保持不变"
-      : "搜索范围已切换为全国",
+  clearTimeout($("cityInput").timer);
+  $("cityInput").timer = setTimeout(
+    () => commitCityInput().catch(() => {}),
+    450,
   );
+}
+$("cityInput").oninput = cityInputChanged;
+$("cityInput").onchange = () => commitCityInput().catch(() => {});
+$("cityInput").onkeydown = (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    clearTimeout($("cityInput").timer);
+    commitCityInput().catch(() => {});
+  }
 };
 renderCities();
 

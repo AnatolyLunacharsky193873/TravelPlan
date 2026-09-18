@@ -17,7 +17,7 @@
       type="image/svg+xml"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2312211c'/%3E%3Cpath d='M17 42c8-20 17-20 30 0' fill='none' stroke='%23ff7657' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='17' cy='42' r='5' fill='%23f5d78e'/%3E%3Ccircle cx='47' cy='42' r='5' fill='%23f5d78e'/%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="./styles.css?v=5" />
+    <link rel="stylesheet" href="./styles.css?v=6" />
   </head>
   <body>
     <main class="app-shell">
@@ -77,9 +77,14 @@
           </div>
           <!-- The city is a search boundary, not a destructive filter on saved places. -->
           <div class="city-field">
-            <label for="citySelect">搜索城市</label
-            ><select id="citySelect" aria-describedby="cityHelp">
-              <option value="">全国（不限制）</option></select
+            <label for="cityInput">搜索城市</label
+            ><input
+              id="cityInput"
+              list="cityOptions"
+              aria-describedby="cityHelp"
+              placeholder="输入城市，留空为全国"
+              autocomplete="off"
+            /><datalist id="cityOptions"></datalist
             ><button
               id="reloadCities"
               class="text-button"
@@ -89,7 +94,7 @@
             </button>
           </div>
           <p id="cityHelp" class="search-help">
-            连接高德后可选择完整城市列表；选定城市后仅显示该市结果。
+            可直接输入城市名，也可从候选中选择；确认后仅显示该市结果。
           </p>
           <div class="endpoint-fields">
             <div class="endpoint-row">
@@ -338,6 +343,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="alert"></div>
-    <script type="module" src="./app.js?v=5"></script>
+    <script type="module" src="./app.js?v=6"></script>
   </body>
 </html>

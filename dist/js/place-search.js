@@ -119,6 +119,62 @@ export async function listCities(api) {
     .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
 }
 
+function cityKey(value) {
+  return String(value || "")
+    .trim()
+    .replace(/特别行政区$|自治州$|地区$|市$|盟$/, "");
+}
+
+/** Resolve free-form city text to one unambiguous administrative code. */
+export async function resolveCity(api, value, knownCities = []) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const exact = knownCities.filter(
+    (city) =>
+      city.adcode === text ||
+      city.name === text ||
+      cityKey(city.name) === cityKey(text),
+  );
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1)
+    throw new Error("城市名称不够明确，请输入完整城市名");
+  if (!api?.DistrictSearch)
+    throw new Error("请先连接高德地图，才能识别这个城市");
+
+  const data = await request((done) =>
+    new api.DistrictSearch({
+      level: "city",
+      subdistrict: 0,
+      extensions: "base",
+      showbiz: false,
+    }).search(text, done),
+  );
+  const candidates = (data?.districtList || [])
+    .filter(
+      (item) =>
+        item.level === "city" ||
+        (item.level === "province" &&
+          /^(11|12|31|50|81|82)0000$/.test(String(item.adcode))),
+    )
+    .map(({ name, adcode, center }) => ({
+      name,
+      adcode: String(adcode),
+      center,
+    }));
+  const matched = candidates.filter(
+    (city) => city.name === text || cityKey(city.name) === cityKey(text),
+  );
+  const result =
+    matched.length === 1
+      ? matched[0]
+      : candidates.length === 1
+        ? candidates[0]
+        : null;
+  if (!result)
+    throw new Error("未能唯一识别该城市，请输入完整城市名，例如“扬州市”");
+  return result;
+}
+
 export async function searchPlaces(api, keyword, city) {
   const options = { city: city?.adcode || "全国", citylimit: Boolean(city) };
   // Remove only an explicitly selected city's prefix, never guess from place names.

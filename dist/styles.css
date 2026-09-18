@@ -882,7 +882,8 @@ a:focus-visible {
   margin: 14px 0 6px;
   font-size: 14px;
 }
-.city-field select {
+.city-field select,
+.city-field input {
   min-width: 0;
   flex: 1;
   border: 1px solid #d5d5da;

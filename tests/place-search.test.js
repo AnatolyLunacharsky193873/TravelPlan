@@ -4,6 +4,7 @@ import {
   belongsToCity,
   searchPlaces,
   normalizePoi,
+  resolveCity,
 } from "../dist/js/place-search.js";
 const city = { name: "扬州市", adcode: "321000" };
 
@@ -72,5 +73,48 @@ test("invalid locations are discarded instead of creating unusable markers", () 
   assert.equal(
     normalizePoi({ location: "119.4,32.4", name: "OK" }).location.lng,
     119.4,
+  );
+});
+
+test("manual city input resolves suggestions, suffix-free names and provider results", async () => {
+  assert.equal(
+    (await resolveCity(null, "扬州", [
+      { name: "扬州市", adcode: "321000" },
+    ])).adcode,
+    "321000",
+  );
+  class DistrictSearch {
+    search(text, done) {
+      assert.equal(text, "苏州");
+      done("complete", {
+        districtList: [
+          {
+            name: "苏州市",
+            adcode: "320500",
+            level: "city",
+            center: { lng: 120.58, lat: 31.3 },
+          },
+        ],
+      });
+    }
+  }
+  const resolved = await resolveCity({ DistrictSearch }, "苏州", []);
+  assert.equal(resolved.name, "苏州市");
+  assert.equal(resolved.adcode, "320500");
+});
+
+test("manual city input rejects districts and unknown cities", async () => {
+  class DistrictSearch {
+    search(text, done) {
+      done("complete", {
+        districtList: [
+          { name: "吴江区", adcode: "320509", level: "district" },
+        ],
+      });
+    }
+  }
+  await assert.rejects(
+    resolveCity({ DistrictSearch }, "吴江区", []),
+    /完整城市名/,
   );
 });
