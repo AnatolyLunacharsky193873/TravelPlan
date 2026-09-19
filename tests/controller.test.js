@@ -81,6 +81,13 @@ globalThis.AMap = {
 const { state, sample } = await import("../dist/js/state.js");
 const app = await import("../dist/app.js");
 
+test("city suggestions show names without administrative codes", () => {
+  const options = get("cityOptions").innerHTML;
+  assert.match(options, /杭州市/);
+  assert.doesNotMatch(options, /\b\d{6}\b/);
+  assert.doesNotMatch(options, /label=/);
+});
+
 test("controller: optional endpoints, marker toggle/drag, confirmation, clearing and stale requests", async () => {
   app.clearAll();
   assert.equal(get("routeSummary").hidden, true);

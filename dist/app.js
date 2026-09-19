@@ -699,10 +699,7 @@ if (state.city && !cities.some((c) => c.adcode === state.city.adcode))
 let cityResolveToken = 0;
 function renderCities({ preserveInput = false } = {}) {
   $("cityOptions").innerHTML = cities
-    .map(
-      (city) =>
-        `<option value="${esc(city.name)}" label="${esc(city.adcode)}"></option>`,
-    )
+    .map((city) => `<option value="${esc(city.name)}"></option>`)
     .join("");
   if (!preserveInput) $("cityInput").value = state.city?.name || "";
 }
