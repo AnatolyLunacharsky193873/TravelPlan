@@ -39,7 +39,6 @@ export const state = {
   city: saved?.city || null,
   mode: saved?.mode || "driving",
   round: !!saved?.round,
-  sort: saved?.sort !== false,
   map: null,
   ready: false,
   markers: [],
@@ -65,7 +64,6 @@ export function persist() {
         via: state.via,
         mode: state.mode,
         round: state.round,
-        sort: state.sort,
         city: state.city,
       }),
     );

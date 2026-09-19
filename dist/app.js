@@ -1,5 +1,5 @@
 import { $, esc, sample, state, coord, trip, persist } from "./js/state.js";
-import { planOrder, constraints, uniqueRoutes } from "./js/route-engine.js";
+import { uniqueRoutes } from "./js/route-engine.js";
 import {
   defaultCities,
   listCities,
@@ -81,7 +81,6 @@ function render() {
     .forEach((b) => (b.disabled = state.round));
   $("swapEndpoints").disabled = state.round;
   $("roundTrip").checked = state.round;
-  $("sortStops").checked = state.sort;
   document.querySelectorAll(".mode").forEach((b) => {
     const selected = b.dataset.mode === state.mode;
     b.classList.toggle("active", selected);
@@ -176,10 +175,6 @@ document.querySelectorAll(".mode").forEach(
 );
 $("roundTrip").onchange = (e) => {
   state.round = e.target.checked;
-  update();
-};
-$("sortStops").onchange = (e) => {
-  state.sort = e.target.checked;
   update();
 };
 document.querySelectorAll("[data-pick]").forEach(
@@ -373,55 +368,8 @@ function checkRevision(rev) {
   if (rev !== state.revision) throw new Error("行程已更改");
 }
 
-/** Build a directed travel-time matrix with bounded parallel requests. */
-async function optimizePoints(points, rev) {
-  const options = constraints(state);
-  const n = points.length;
-  if (!state.sort)
-    return planOrder(
-      Array.from({ length: n }, () => Array(n).fill(0)),
-      options,
-    ).map((i) => points[i]);
-  const matrix = Array.from({ length: n }, () => Array(n).fill(Infinity));
-  const pairs = [];
-  for (let i = 0; i < n; i++)
-    for (let j = 0; j < n; j++) {
-      if (i === j) matrix[i][j] = 0;
-      else pairs.push([i, j]);
-    }
-  let next = 0,
-    done = 0;
-  async function worker() {
-    while (next < pairs.length) {
-      checkRevision(rev);
-      const [i, j] = pairs[next++];
-      if (points[i].lng === points[j].lng && points[i].lat === points[j].lat)
-        matrix[i][j] = 0;
-      else
-        matrix[i][j] = (
-          await query(
-            [points[i], points[j]],
-            state.mode,
-            AMap.DrivingPolicy.REAL_TRAFFIC,
-          )
-        )[0].time;
-      checkRevision(rev);
-      status("正在比较有效地点顺序 " + ++done + "/" + pairs.length);
-    }
-  }
-  try {
-    await Promise.all([worker(), worker(), worker()]);
-  } catch (error) {
-    // Stop the other workers after a failure; late responses cannot update status.
-    if (rev === state.revision) invalidate("路线计算未完成，请重试");
-    throw error;
-  }
-  checkRevision(rev);
-  return planOrder(matrix, options).map((i) => points[i]);
-}
-
 async function realRoutes(points, rev) {
-  const order = await optimizePoints(points, rev),
+  const order = state.round ? [...points, points[0]] : points,
     results = [];
   if (state.mode === "driving") {
     const policies = [
@@ -480,10 +428,7 @@ async function realRoutes(points, rev) {
   };
 }
 function demoRoutes(points) {
-  const matrix = points.map((a) =>
-    points.map((b) => Math.hypot((a.lng - b.lng) * 0.86, a.lat - b.lat)),
-  );
-  const order = planOrder(matrix, constraints(state)).map((i) => points[i]);
+  const order = state.round ? [...points, points[0]] : points;
   return [
     {
       order,
@@ -526,9 +471,6 @@ async function confirmPreview() {
           " 种可用方案" +
           (state.routes.length < 3 ? "（相同路线已合并）" : "")
       : "仅为地点连接示意，不代表真实道路、距离或路况。接入高德后可比较真实路线。";
-    if (state.sort && points.length > 11)
-      $("routeNote").textContent +=
-        " · 地点较多，顺序使用近似优化，不保证全局最优";
     selectRoute(0);
     fitMap();
     if (innerWidth <= 800)
@@ -727,7 +669,7 @@ function registerTools() {
     name: "optimize_trip_route",
     title: "确认并预览路线",
     description:
-      "Generate and show at most three route alternatives only when the user has explicitly requested a preview. Keep explicitly set, enabled anchors fixed; otherwise choose free endpoints.",
+      "Generate and show at most three route alternatives only when the user has explicitly requested a preview. Use the current enabled-point list order.",
     inputSchema: {
       type: "object",
       properties: { confirmed: { type: "boolean", const: true } },

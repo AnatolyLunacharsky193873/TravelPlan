@@ -105,10 +105,10 @@ test("controller: optional endpoints, marker toggle/drag, confirmation, clearing
   state.round = false;
   state.map = { add() {}, remove() {}, setFitView() {} };
   state.ready = true;
-  state.sort = false;
   app.update();
   await app.confirmPreview();
   assert.equal(state.routes.length, 3);
+  assert.deepEqual(state.routes[0].order, state.via);
   const marker = state.markers[0];
   marker.events.click();
   assert.equal(state.via[0].enabled, false);

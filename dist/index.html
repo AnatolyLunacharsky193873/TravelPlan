@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#12211c" />
     <meta
       name="description"
-      content="多点旅游路线规划工具：使用高德地图和实时路况，自动安排更省时的游览顺序。"
+      content="多点旅游路线规划工具：使用高德地图规划驾车、步行和骑行路线。"
     />
     <title>途记 · 多点旅游路线规划</title>
     <link
@@ -102,7 +102,7 @@
               ><label for="startInput">起点</label
               ><input
                 id="startInput"
-                placeholder="可留空，自动安排"
+                placeholder="可留空"
                 autocomplete="off"
               /><button
                 id="toggleStart"
@@ -129,7 +129,7 @@
               ><label for="endInput">终点</label
               ><input
                 id="endInput"
-                placeholder="可留空，自动安排"
+                placeholder="可留空"
                 autocomplete="off"
               /><button
                 id="toggleEnd"
@@ -179,15 +179,6 @@
             地图链接可手动导入，请核对位置。
           </p>
           <button id="pickVia" class="text-button">⌖ 在地图上添加途经点</button>
-          <label class="return-toggle"
-            ><span
-              ><strong>智能排列有效地点</strong
-              ><small>已设置的起终点固定，留空则自动安排</small></span
-            ><input type="checkbox" id="sortStops" checked /><span
-              class="switch"
-              aria-hidden="true"
-            ></span
-          ></label>
           <label class="return-toggle"
             ><span
               ><strong>返回出发点</strong
